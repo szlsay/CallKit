@@ -21,6 +21,7 @@ static NSString *IdentifierExtension = @"com.st.cn.CallTest.CallExtension";
 - (void)updateDataWithCompletion:(nullable void (^)(NSError *_Nullable error))completion{
     CXCallDirectoryManager *manager = [CXCallDirectoryManager sharedInstance];
     [manager reloadExtensionWithIdentifier:IdentifierExtension completionHandler:^(NSError * _Nullable error) {
+         NSLog(@"%s %@", __FUNCTION__, error);
         completion(error);
     }];
 }
@@ -36,7 +37,7 @@ static NSString *IdentifierExtension = @"com.st.cn.CallTest.CallExtension";
 /** 3.保存来电信息 */
 - (void)saveDataWithCompletion:(void(^)(BOOL success))completion{
     NSString *filePathIdentification = [self readPathIdentification];
-    [[NSFileManager defaultManager] removeItemAtPath:filePathIdentification error:nil];
+//    [[NSFileManager defaultManager] removeItemAtPath:filePathIdentification error:nil];
     if (self.arrayCall.count > 0) {
         BOOL success = [self.arrayCall writeToFile:filePathIdentification atomically:YES];
         

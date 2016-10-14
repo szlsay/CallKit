@@ -41,6 +41,9 @@
     [self.view addSubview:self.buttonSave];
     [self.view addSubview:self.buttonCheck];
     [self.view addSubview:self.buttonRead];
+    
+    
+    
 }
 #pragma mark - --- 2.delegate 视图委托 ---
 
@@ -49,6 +52,7 @@
 -(void)readSavedInfo
 {
     [self.view endEditing:YES];
+    
     
     NSArray<NSDictionary *> *array = [self.manager readData];
     NSString *message = @"";
@@ -92,19 +96,30 @@
     
     [self.view endEditing:YES];
     
-    NSString *photo = self.textPhoto.text;
-    NSString *name = self.textName.text;
-    
-    [self.manager.arrayCall addObject:@{photo:name}];
+//    NSString *photo = self.textPhoto.text;
+//    NSString *name = self.textName.text;
+//    
+//    [self.manager.arrayCall addObject:@{photo:name}];
+    [self.manager.arrayCall removeAllObjects];
+    for (NSInteger number=0; number < 30000; number++) {
+        NSString *photo = [NSString stringWithFormat:@"1354408%ld", (long)number];
+        NSString *name = self.textName.text;
+        
+        [self.manager.arrayCall addObject:@{photo:name}];
+    }
     
     [self.manager saveDataWithCompletion:^(BOOL success) {
+        
         if (success) {
             [[[UIAlertView alloc]initWithTitle:@"提示" message:@"保存成功" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
             
+             NSLog(@"%s %lu", __FUNCTION__, (unsigned long)[self.manager readData].count);
              NSLog(@"%s %@", __FUNCTION__, [self.manager readData]);
             
         }else {
             [[[UIAlertView alloc]initWithTitle:@"提示" message:@"保存失败" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+             NSLog(@"%s %lu", __FUNCTION__, (unsigned long)[self.manager readData].count);
+            NSLog(@"%s %@", __FUNCTION__, [self.manager readData]);
         }
     }];
 }
