@@ -7,7 +7,8 @@
 //
 
 #import "ViewController.h"
-#import <CallKit/CallKit.h>
+
+#import "CallDirectoryManager.h"
 
 @interface ViewController ()<UITextFieldDelegate>
 
@@ -23,7 +24,9 @@
 @property(nonatomic, strong)UIButton *buttonRead;
 
 /** 6.保存的数据 */
-@property(nonatomic, strong)NSMutableDictionary *dicMuIdentification;
+@property(nonatomic, strong)NSMutableDictionary *dicIdentification;
+/** 7.电话管理者 */
+@property(nonatomic, strong)CallDirectoryManager *manager;
 @end
 
 @implementation ViewController
@@ -46,171 +49,81 @@
 -(void)readSavedInfo
 {
     [self.view endEditing:YES];
-    [self changeIdentificationCompletion:^(BOOL success) {
-        
-        NSString *filePathIdentification = [self readPathIdentification];
-        NSDictionary *dicIdentification = [[NSDictionary alloc] initWithContentsOfFile:filePathIdentification];
-        NSArray *arrIdentificationPhones = [dicIdentification allKeys];
-        NSLog(@"%s %@", __FUNCTION__, arrIdentificationPhones);
-        
-        NSMutableString *message = @"".mutableCopy;
-        for (NSString *string in [dicIdentification allKeys]) {
-            message = [message stringByAppendingString:string].mutableCopy;
+    
+    NSArray<NSDictionary *> *array = [self.manager readData];
+    NSString *message = @"";
+    if (array.count > 0) {
+        for (NSDictionary *dic in array) {
+            message = [message stringByAppendingString:dic.allKeys[0]];
         }
-        
-        if (!success) {
-            message = @"没有来电提醒信息".mutableCopy;
-        }
-        
-        UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                       message:message
-                                                                preferredStyle:UIAlertControllerStyleAlert];
-        
-        UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                              handler:^(UIAlertAction * action) {}];
-        
-        [alert addAction:defaultAction];
-        [self presentViewController:alert animated:YES completion:nil];
-        
-    }];
+    }else {
+        message = @"没有数据";
+    }
+    
+    [[[UIAlertView alloc]initWithTitle:@"提示" message:message delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+    
 }
 
 -(void)checkPermissions
 {
     [self.view endEditing:YES];
-    CXCallDirectoryManager *manager = [CXCallDirectoryManager sharedInstance];
-    // 获取权限状态
-    [manager getEnabledStatusForExtensionWithIdentifier:@"com.st.cn.CallTest.CallExtension" completionHandler:^(CXCallDirectoryEnabledStatus enabledStatus, NSError * _Nullable error) {
+    
+    [self.manager getEnabledStatusWithCompletionHandler:^(CXCallDirectoryEnabledStatus enabledStatus, NSError * _Nullable error) {
+        NSString *message;
         if (!error) {
-            NSString *title = nil;
-            if (enabledStatus == CXCallDirectoryEnabledStatusDisabled) {
-                /*
-                 CXCallDirectoryEnabledStatusUnknown = 0,
-                 CXCallDirectoryEnabledStatusDisabled = 1,
-                 CXCallDirectoryEnabledStatusEnabled = 2,
-                 */
-                title = @"未授权，请在设置->电话授权相关权限";
-            }else if (enabledStatus == CXCallDirectoryEnabledStatusEnabled) {
-                title = @"授权";
-            }else if (enabledStatus == CXCallDirectoryEnabledStatusUnknown) {
-                title = @"不知道";
+            switch (enabledStatus) {
+                case CXCallDirectoryEnabledStatusUnknown:message = @"不知道";
+                    break;
+                case CXCallDirectoryEnabledStatusDisabled:message = @"未授权，请在设置->电话授权相关权限";
+                    break;
+                case CXCallDirectoryEnabledStatusEnabled:message = @"授权";
+                    break;
             }
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                           message:title
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                                  handler:^(UIAlertAction * action) {}];
-            
-            [alert addAction:defaultAction];
-            [self presentViewController:alert animated:YES completion:nil];
-        }else{
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                           message:@"有错误"
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                                  handler:^(UIAlertAction * action) {}];
-            
-            [alert addAction:defaultAction];
-            [self presentViewController:alert animated:YES completion:nil];
+        }else {
+            message = @"有错误";
         }
+        
+        [[[UIAlertView alloc]initWithTitle:@"提示" message:message delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
     }];
 }
 
 -(void)saveData
 {
+    
     [self.view endEditing:YES];
-    [self changeIdentificationCompletion:^(BOOL success) {
+    
+    NSString *photo = self.textPhoto.text;
+    NSString *name = self.textName.text;
+    
+    [self.manager.arrayCall addObject:@{photo:name}];
+    
+    [self.manager saveDataWithCompletion:^(BOOL success) {
         if (success) {
-            [self updateData];
+            [[[UIAlertView alloc]initWithTitle:@"提示" message:@"保存成功" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+            
+             NSLog(@"%s %@", __FUNCTION__, [self.manager readData]);
+            
         }else {
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                           message:@"填写数据"
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                                  handler:^(UIAlertAction * action) {}];
-            
-            [alert addAction:defaultAction];
-            [self presentViewController:alert animated:YES completion:nil];
+            [[[UIAlertView alloc]initWithTitle:@"提示" message:@"保存失败" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
         }
     }];
 }
 
 -(void)updateData
 {
-    CXCallDirectoryManager *manager = [CXCallDirectoryManager sharedInstance];
-    
-    [manager reloadExtensionWithIdentifier:@"com.st.cn.CallTest.CallExtension" completionHandler:^(NSError * _Nullable error) {
-        
-        NSLog(@"%s %@", __FUNCTION__, error);
-        
+    [self.manager updateDataWithCompletion:^(NSError * _Nullable error) {
         if (error == nil) {
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                           message:@"更新成功"
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                                  handler:^(UIAlertAction * action) {}];
-            
-            [alert addAction:defaultAction];
-            [self presentViewController:alert animated:YES completion:nil];
-        }else{
-            UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"提示"
-                                                                           message:@"更新失败"
-                                                                    preferredStyle:UIAlertControllerStyleAlert];
-            
-            UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
-                                                                  handler:^(UIAlertAction * action) {}];
-            
-            [alert addAction:defaultAction];
-            [self presentViewController:alert animated:YES completion:nil];
+            [[[UIAlertView alloc]initWithTitle:@"提示" message:@"更新成功" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
+        }else {
+            [[[UIAlertView alloc]initWithTitle:@"提示" message:@"更新失败" delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil] show];
         }
+        
     }];
 }
 
 
-- (NSString *)readPathIdentification{
-    NSURL *fileUrl = [[NSFileManager defaultManager] containerURLForSecurityApplicationGroupIdentifier:@"group.com.st.cn.CallTest"];
-    NSString *filePath = [fileUrl.absoluteString substringFromIndex:(@"file://".length)];
-    NSString *filePathIdentification = [filePath stringByAppendingString:@"CallDirectoryHandler.plist"];
-    return filePathIdentification;
-}
-
-- (void)changeIdentificationCompletion:(void(^)(BOOL success))completion{
-    
-    if (self.textPhoto.text.length < 6) {
-        completion(NO);
-    }else {
-        NSString *photo = [self fixPhone:self.textPhoto.text];
-        [self.dicMuIdentification setValue:self.textName.text forKey:photo];
-        
-        NSString *filePathIdentification = [self readPathIdentification];
-        [[NSFileManager defaultManager] removeItemAtPath:filePathIdentification error:nil];
-        if (self.dicMuIdentification != nil && [self.dicMuIdentification count]) {
-            BOOL success = [self.dicMuIdentification writeToFile:filePathIdentification atomically:YES];
-            completion(success);
-        }else{
-            completion(YES);
-        }
-    }
-}
-
 #pragma mark - --- 4.private methods 私有方法 ---
-- (NSString *)fixPhone:(NSString *)phone{
-    NSString *stringPhone = [phone stringByReplacingOccurrencesOfString:@"+" withString:@""];
-    stringPhone = [stringPhone stringByReplacingOccurrencesOfString:@" " withString:@""];
-    stringPhone = [stringPhone stringByReplacingOccurrencesOfString:@"-" withString:@""];
-    stringPhone = [stringPhone stringByReplacingOccurrencesOfString:@"(" withString:@""];
-    stringPhone = [stringPhone stringByReplacingOccurrencesOfString:@")" withString:@""];
-    if (stringPhone != nil && stringPhone.length > 0) {
-        NSInteger phonenumebr = [stringPhone longLongValue];
-        NSString *stringFinal = [NSString stringWithFormat:@"%@%ld",([stringPhone hasPrefix:@"86"]?@"":@"86"),phonenumebr];
-        return stringFinal;
-    }
-    return stringPhone;
-}
+
 #pragma mark - --- 5.setters 属性 ---
 
 #pragma mark - --- 6.getters 属性 —--
@@ -290,15 +203,21 @@
     return _buttonRead;
 }
 
-- (NSMutableDictionary *)dicMuIdentification
+- (NSMutableDictionary *)dicIdentification
 {
-    if (!_dicMuIdentification) {
-        _dicMuIdentification = @{}.mutableCopy;
+    if (!_dicIdentification) {
+        _dicIdentification = @{}.mutableCopy;
     }
-    return _dicMuIdentification;
+    return _dicIdentification;
 }
 
-
+- (CallDirectoryManager *)manager
+{
+    if (!_manager) {
+        _manager = [[CallDirectoryManager alloc]init];
+    }
+    return _manager;
+}
 
 @end
 
